@@ -45,6 +45,7 @@ public class LRUCacheTest {
             actualKeysAndValues.add(entry.getKey());
             actualKeysAndValues.add(entry.getValue());
         }
+        //FIXME
         assertEquals(Arrays.asList(keysAndValues), actualKeysAndValues);
     }
 
