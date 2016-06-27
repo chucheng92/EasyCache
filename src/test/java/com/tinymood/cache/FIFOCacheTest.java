@@ -1,7 +1,7 @@
 package com.tinymood.cache;
 
 /**
- * Created by hztaoran on 2016/6/23 0023.
+ * Created by hztaoran on 2016/6/26 0026.
  */
 
 import org.junit.After;
@@ -17,9 +17,9 @@ import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.*;
 
 /**
- * LRU缓存测试
+ * FIFO缓存测试
  */
-public class LRUCacheTest {
+public class FIFOCacheTest {
 
     private static final String A = "A";
 
@@ -31,35 +31,30 @@ public class LRUCacheTest {
 
     private static final String E = "E";
 
-    private LRUCache<String, String> cache;
+    private static final String F = "F";
 
-    private static void assertMiss(LRUCache<String, String> cache, String key) {
+    private FIFOCache<String, String> cache;
+
+    private static void assertMiss(FIFOCache<String, String> cache, String key) {
         assertNull(cache.get(key));
     }
 
-    private static void assertHit(LRUCache<String, String> cache, String key, String value) {
+    private static void assertHit(FIFOCache<String, String> cache, String key, String value) {
         assertThat(cache.get(key), is(value));
     }
 
-    private static void assertSnapshot(LRUCache<String, String> cache, String... keysAndValues) {
+    private static void assertSnapshot(FIFOCache<String, String> cache, String... keysAndValues) {
         List<String> actualKeysAndValues = new ArrayList<>();
         for (Map.Entry<String, String> entry : cache.snapshot().entrySet()) {
             actualKeysAndValues.add(entry.getKey());
             actualKeysAndValues.add(entry.getValue());
         }
-        //FIXME
         assertEquals(Arrays.asList(keysAndValues), actualKeysAndValues);
     }
 
     @Before
     public void setUp() {
-        cache = new LRUCache<>(3);
-    }
-
-    @After
-    public void tearDown() {
-        cache.clear();
-        cache = null;
+        cache = new FIFOCache<>(3);
     }
 
     @Test
@@ -88,31 +83,29 @@ public class LRUCacheTest {
         assertHit(cache, "b", B);
         assertHit(cache, "c", C);
         assertHit(cache, "d", D);
-        assertHit(cache, "b", B);
-        assertHit(cache, "c", C);
-        assertSnapshot(cache, "d", D, "b", B, "c", C);
+        assertSnapshot(cache, "b", B, "c", C, "d", D);
 
         cache.put("e", E);
         assertMiss(cache, "a");
-        assertMiss(cache, "d");
-        assertHit(cache, "b", B);
+        assertMiss(cache, "b");
         assertHit(cache, "c", C);
+        assertHit(cache, "d", D);
         assertHit(cache, "e", E);
-        assertSnapshot(cache, "b", B, "c", C, "e", E);
+        assertSnapshot(cache, "c", C, "d", D, "e", E);
 
-        cache.put("e", "X");
+        cache.put("d", "X-D");
         assertMiss(cache, "a");
-        assertMiss(cache, "d");
-        assertHit(cache, "b", B);
+        assertMiss(cache, "b");
         assertHit(cache, "c", C);
-        assertHit(cache, "e", "X");
-        assertSnapshot(cache, "b", B, "c", C, "e", "X");
+        assertHit(cache, "d", "X-D");
+        assertHit(cache, "e", E);
+        assertSnapshot(cache, "c", C, "d", "X-D", "e", E);
     }
 
     @Test
     public void constructorDoesNotAllowZeroCacheSize() {
         try {
-            new LRUCache(0);
+            new FIFOCache(0);
             fail();
         } catch (IllegalArgumentException expected) {
             //nothing
@@ -141,7 +134,7 @@ public class LRUCacheTest {
 
     @Test
     public void evictionWithSingletonCache() {
-        LRUCache<String, String> cache = new LRUCache<>(1);
+        FIFOCache<String, String> cache = new FIFOCache<>(1);
         cache.put("a", A);
         cache.put("b", B);
         assertSnapshot(cache, "b", B);
@@ -149,9 +142,10 @@ public class LRUCacheTest {
 
     @Test
     public void removeOneItem() {
-        LRUCache<String, String> cache = new LRUCache<>(1);
+        FIFOCache<String, String> cache = new FIFOCache<>(1);
         cache.put("a", A);
         cache.put("b", B);
+        assertMiss(cache, "a");
         assertNull(cache.remove("a"));
         assertSnapshot(cache, "b", B);
     }
@@ -176,7 +170,7 @@ public class LRUCacheTest {
         cache.put("b", B);
         cache.put("c", C);
         cache.put("b", D);
-        assertSnapshot(cache, "a", A, "c", C, "b", D);
+        assertSnapshot(cache, "a", A, "b", D, "c", C);
     }
 
     @Test
@@ -188,14 +182,19 @@ public class LRUCacheTest {
             // nothing
         }
     }
-
     @Test
     public void clear() {
         cache.put("a", "a");
+
         cache.put("b", "b");
         cache.put("c", "c");
         cache.clear();
         assertThat(cache.snapshot().size(), is(0));
     }
 
+    @After
+    public void tearDown() {
+        cache.clear();
+        cache = null;
+    }
 }

@@ -24,6 +24,11 @@
             <artifactId>slf4j-log4j12</artifactId>
             <version>1.6.2</version>
         </dependency>
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations-java5</artifactId>
+            <version>RELEASE</version>
+        </dependency>
     </dependencies>
     <build>
         <plugins>
