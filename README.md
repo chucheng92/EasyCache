@@ -1,8 +1,9 @@
 ### 部分缓存算法的实现
 
 - [x] FIFO
-- [ ] LFU
-- [ ] LRU
+- [x] LFU
+- [x] LRU
+- [ ] RandomCache
 
 ### 联系我
 
