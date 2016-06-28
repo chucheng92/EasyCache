@@ -48,3 +48,4 @@ Temporary Items
 /.idea/
 *.iml
 /target/
+*.class
