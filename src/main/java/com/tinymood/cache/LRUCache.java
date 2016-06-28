@@ -8,15 +8,14 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Created by hztaoran on 2016/6/23 0023.
- */
-
-/**
- * 基于memory LRU 缓存实现
- * 该实现是线程安全的
+ * LRU(Least Recently Used)Cache实现
+ * <b>Note:</b>该实现是线程安全的
  *
- * @param <K>
- * @param <V>
+ * @param <K> key
+ * @param <V> value
+ *
+ * @author hztaoran
+ * @version 1.0
  */
 public class LRUCache<K, V> implements Cache<K, V> {
 
@@ -28,7 +27,7 @@ public class LRUCache<K, V> implements Cache<K, V> {
 
     private final int maxMemorySize;
 
-    private int memorySize;
+    private int memorySize = 0;
 
     private static final Logger logger = LoggerFactory.getLogger(LRUCache.class);
 

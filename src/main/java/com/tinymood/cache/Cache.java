@@ -1,12 +1,10 @@
 package com.tinymood.cache;
 
 /**
- * Created by hztaoran on 2016/6/22 0022.
- */
-
-/**
- * @author hztaoran
  * Cache接口
+ *
+ * @author hztaoran
+ * @version 1.0
  */
 public interface Cache<K,V> {
     /**

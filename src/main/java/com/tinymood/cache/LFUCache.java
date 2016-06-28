@@ -1,15 +1,13 @@
 package com.tinymood.cache;
 
+import com.tinymood.util.MapUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 /**
- * FIFO先进先出Cache
- * <b>Note：</b>该实现是线程安全的
+ * LFU(Least Frequently Used) Cache
  *
  * @param <K> key
  * @param <V> value
@@ -17,7 +15,7 @@ import java.util.Objects;
  * @author hztaoran
  * @version 1.0
  */
-public class FIFOCache<K, V> implements Cache<K, V> {
+public class LFUCache<K, V> implements Cache<K, V> {
 
     private static final int REMOVE_ALL = -1;
 
@@ -25,32 +23,37 @@ public class FIFOCache<K, V> implements Cache<K, V> {
 
     private final Map<K, V> map;
 
+    private final Map<K, Integer> hitMap;
+
     private final int maxMemorySize;
 
-    private int memorySize;
+    private int memorySize = 0;
 
-    private static Logger logger = LoggerFactory.getLogger(FIFOCache.class);
+    private int capacity;
 
-    public FIFOCache() {
+    private static final Logger logger = LoggerFactory.getLogger(LFUCache.class);
+
+    public LFUCache() {
         this(DEFAULT_CAPACITY);
     }
 
-    public FIFOCache(int capacity) {
+    public LFUCache(int capacity) {
         if (capacity <= 0) {
             throw new IllegalArgumentException("capacity <= 0");
         }
-        this.map = new FIFOHashMap<>(capacity);
+        this.map = new LinkedHashMap<>(capacity);
+        this.hitMap = new LinkedHashMap<>(capacity);
+        this.capacity = capacity;
         maxMemorySize = 2 * 1024 * 1024;
     }
-
 
     @Override
     public final V get(K key) {
         Objects.requireNonNull(key, "key is null");
-        V value;
         synchronized (this) {
-            value = map.get(key);
+            V value = map.get(key);
             if (null != value) {
+                hitMap.put(key, hitMap.get(key) + 1);
                 return value;
             }
         }
@@ -63,8 +66,12 @@ public class FIFOCache<K, V> implements Cache<K, V> {
         Objects.requireNonNull(value, "value is null");
         V oldValue;
         synchronized (this) {
+            if (map.size() >= capacity && map.get(key) == null) {
+                remove(findLeastHit(hitMap));
+            }
             oldValue = map.put(key, value);
             memorySize += getValueSize(value);
+            hitMap.put(key, 0);
             if (null != oldValue) {
                 memorySize -= getValueSize(oldValue);
             }
@@ -80,14 +87,15 @@ public class FIFOCache<K, V> implements Cache<K, V> {
         synchronized (this) {
             oldValue = map.remove(key);
             if (null != oldValue) {
+                hitMap.remove(key);
                 memorySize -= getValueSize(oldValue);
             }
         }
-        return oldValue;
+        return null;
     }
 
     @Override
-    public synchronized final void clear() {
+    public void clear() {
         trimToSize(REMOVE_ALL);
     }
 
@@ -101,10 +109,12 @@ public class FIFOCache<K, V> implements Cache<K, V> {
         return memorySize;
     }
 
+    public synchronized final Map<K, Integer> getHitMap() {
+        return this.hitMap;
+    }
+
     /**
-     * return a copy of current contents of the cache
-     *
-     * @return map
+     * Returns a copy of the current contents of the cache.
      */
     public synchronized final Map<K, V> snapshot() {
         return new LinkedHashMap<>(map);
@@ -131,14 +141,30 @@ public class FIFOCache<K, V> implements Cache<K, V> {
      *
      * @return class name.
      */
-    private String getClassName() {
-        return FIFOCache.class.getName();
+    protected String getClassName() {
+        return LRUCache.class.getName();
     }
 
     /**
-     * remove the first in
+     * find least hit entry in map
+     *
+     * @param hitMap
+     * @return
+     */
+    private K findLeastHit(Map<K, Integer> hitMap) {
+        List<Map.Entry<K, Integer>> list = MapUtil.sortMapEntryByValue(hitMap);
+
+        if (null != list) {
+            return list.get(0).getKey();
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * Remove the eldest entries.
      * <p>
-     * <em>Note:</em> This method has to be called in synchronized block
+     * <em>Note:</em> This method has to be called in synchronized block.
      *
      * @param maxSize
      */
@@ -147,12 +173,16 @@ public class FIFOCache<K, V> implements Cache<K, V> {
             if (memorySize <= maxSize || map.isEmpty()) {
                 break;
             }
-            if (memorySize < 0 || (memorySize != 0 && map.isEmpty())) {
+            if (memorySize < 0 || (map.isEmpty() && memorySize != 0)) {
                 throw new IllegalStateException(getClassName() + ".getValueSize() is reporting inconsistent results");
             }
-            Map.Entry<K, V> toRemove = map.entrySet().iterator().next();
-            map.remove(toRemove.getKey());
-            memorySize -= getValueSize(toRemove.getValue());
+            K removeKey = findLeastHit(hitMap);
+            if (null == removeKey) {
+                break;
+            }
+            map.remove(removeKey);
+            hitMap.remove(removeKey);
+            memorySize -= getValueSize(map.get(removeKey));
         }
     }
 
@@ -172,7 +202,6 @@ public class FIFOCache<K, V> implements Cache<K, V> {
                 .append("memorySize=")
                 .append(memorySize)
                 .append("]");
-
         return sb.toString();
     }
 }

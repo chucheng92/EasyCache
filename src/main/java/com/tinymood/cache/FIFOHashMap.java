@@ -4,7 +4,13 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Created by hztaoran on 2016/6/26 0026.
+ * 继承LinkedHashMap实现FIFO缓存
+ *
+ * @param <K> key
+ * @param <V> value
+ *
+ * @author hztaoran
+ * @version 1.0
  */
 public class FIFOHashMap<K, V> extends LinkedHashMap<K, V> {
 

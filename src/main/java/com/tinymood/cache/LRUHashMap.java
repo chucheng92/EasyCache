@@ -3,16 +3,15 @@ package com.tinymood.cache;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * Created by hztaoran on 2016/6/23 0023.
- */
 
 /**
  * 继承{@link java.util.LinkedHashMap} 实现LRU缓存
  *
- * @param <K>
- * @param <V>
+ * @param <K> key
+ * @param <V> value
+ *
  * @author hztaoran
+ * @version 1.0
  */
 public class LRUHashMap<K,V> extends LinkedHashMap<K,V>{
 

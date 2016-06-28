@@ -1,9 +1,5 @@
 package com.tinymood.cache;
 
-/**
- * Created by hztaoran on 2016/6/26 0026.
- */
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -17,9 +13,9 @@ import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.*;
 
 /**
- * FIFO缓存测试
+ * LFU缓存测试
  */
-public class FIFOCacheTest {
+public class LFUCacheTest {
 
     private static final String A = "A";
 
@@ -31,19 +27,17 @@ public class FIFOCacheTest {
 
     private static final String E = "E";
 
-    private static final String F = "F";
+    private LFUCache<String, String> cache;
 
-    private FIFOCache<String, String> cache;
-
-    private static void assertMiss(FIFOCache<String, String> cache, String key) {
+    private static void assertMiss(LFUCache<String, String> cache, String key) {
         assertNull(cache.get(key));
     }
 
-    private static void assertHit(FIFOCache<String, String> cache, String key, String value) {
+    private static void assertHit(LFUCache<String, String> cache, String key, String value) {
         assertThat(cache.get(key), is(value));
     }
 
-    private static void assertSnapshot(FIFOCache<String, String> cache, String... keysAndValues) {
+    private static void assertSnapshot(LFUCache<String, String> cache, String... keysAndValues) {
         List<String> actualKeysAndValues = new ArrayList<>();
         for (Map.Entry<String, String> entry : cache.snapshot().entrySet()) {
             actualKeysAndValues.add(entry.getKey());
@@ -54,7 +48,7 @@ public class FIFOCacheTest {
 
     @Before
     public void setUp() {
-        cache = new FIFOCache<>(3);
+        cache = new LFUCache<>(3);
     }
 
     @Test
@@ -66,46 +60,61 @@ public class FIFOCacheTest {
     public void logic() {
         cache.put("a", A);
         assertHit(cache, "a", A);
+        assertThat(cache.getHitMap().get("a"), is(1));
 
         cache.put("b", B);
         assertHit(cache, "a", A);
         assertHit(cache, "b", B);
+        assertThat(cache.getHitMap().get("a"), is(2));
+        assertThat(cache.getHitMap().get("b"), is(1));
         assertSnapshot(cache, "a", A, "b", B);
 
         cache.put("c", C);
         assertHit(cache, "a", A);
         assertHit(cache, "b", B);
         assertHit(cache, "c", C);
+        assertThat(cache.getHitMap().get("a"), is(3));
+        assertThat(cache.getHitMap().get("b"), is(2));
+        assertThat(cache.getHitMap().get("c"), is(1));
         assertSnapshot(cache, "a", A, "b", B, "c", C);
 
         cache.put("d", D);
-        assertMiss(cache, "a");
+        assertMiss(cache, "c");
+        assertHit(cache, "a", A);
         assertHit(cache, "b", B);
-        assertHit(cache, "c", C);
         assertHit(cache, "d", D);
-        assertSnapshot(cache, "b", B, "c", C, "d", D);
+        assertThat(cache.getHitMap().get("a"), is(4));
+        assertThat(cache.getHitMap().get("b"), is(3));
+        assertThat(cache.getHitMap().get("d"), is(1));
+        assertSnapshot(cache, "a", A, "b", B, "d", D);
 
         cache.put("e", E);
-        assertMiss(cache, "a");
-        assertMiss(cache, "b");
-        assertHit(cache, "c", C);
-        assertHit(cache, "d", D);
+        assertMiss(cache, "c");
+        assertMiss(cache, "d");
+        assertHit(cache, "a", A);
+        assertHit(cache, "b", B);
         assertHit(cache, "e", E);
-        assertSnapshot(cache, "c", C, "d", D, "e", E);
+        assertThat(cache.getHitMap().get("a"), is(5));
+        assertThat(cache.getHitMap().get("b"), is(4));
+        assertThat(cache.getHitMap().get("e"), is(1));
+        assertSnapshot(cache, "a", A, "b", B, "e", E);
 
         cache.put("d", "X-D");
-        assertMiss(cache, "a");
-        assertMiss(cache, "b");
-        assertHit(cache, "c", C);
+        assertMiss(cache, "c");
+        assertMiss(cache, "e");
+        assertHit(cache, "a", A);
+        assertHit(cache, "b", B);
         assertHit(cache, "d", "X-D");
-        assertHit(cache, "e", E);
-        assertSnapshot(cache, "c", C, "d", "X-D", "e", E);
+        assertThat(cache.getHitMap().get("a"), is(6));
+        assertThat(cache.getHitMap().get("b"), is(5));
+        assertThat(cache.getHitMap().get("d"), is(1));
+        assertSnapshot(cache, "a", A, "b", B, "d", "X-D");
     }
 
     @Test
     public void constructorDoesNotAllowZeroCacheSize() {
         try {
-            new FIFOCache(0);
+            new LFUCache(0);
             fail();
         } catch (IllegalArgumentException expected) {
             //nothing
@@ -134,15 +143,16 @@ public class FIFOCacheTest {
 
     @Test
     public void evictionWithSingletonCache() {
-        FIFOCache<String, String> cache = new FIFOCache<>(1);
+        LFUCache<String, String> cache = new LFUCache<>(1);
         cache.put("a", A);
         cache.put("b", B);
+        assertMiss(cache, "a");
         assertSnapshot(cache, "b", B);
     }
 
     @Test
     public void removeOneItem() {
-        FIFOCache<String, String> cache = new FIFOCache<>(1);
+        LFUCache<String, String> cache = new LFUCache<>(1);
         cache.put("a", A);
         cache.put("b", B);
         assertMiss(cache, "a");
@@ -170,6 +180,11 @@ public class FIFOCacheTest {
         cache.put("b", B);
         cache.put("c", C);
         cache.put("b", D);
+        System.out.println(cache.toString());
+        System.out.println(cache.getHitMap());
+        assertThat(cache.getHitMap().get("a"), is(0));
+        assertThat(cache.getHitMap().get("b"), is(0));
+        assertThat(cache.getHitMap().get("c"), is(0));
         assertSnapshot(cache, "a", A, "b", D, "c", C);
     }
 
@@ -187,6 +202,9 @@ public class FIFOCacheTest {
         cache.put("a", "a");
         cache.put("b", "b");
         cache.put("c", "c");
+        assertThat(cache.getHitMap().get("a"), is(0));
+        assertThat(cache.getHitMap().get("b"), is(0));
+        assertThat(cache.getHitMap().get("c"), is(0));
         cache.clear();
         assertThat(cache.snapshot().size(), is(0));
     }
